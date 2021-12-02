@@ -3,10 +3,9 @@ package com.musicianhelper.mergequestion
 import com.jakewharton.rxrelay3.PublishRelay
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Observer
-import io.reactivex.rxjava3.observables.ConnectableObservable
+import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.observers.TestObserver
 import io.reactivex.rxjava3.schedulers.TestScheduler
-import io.reactivex.rxjava3.subjects.PublishSubject
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.core.IsInstanceOf.instanceOf
 import org.junit.Before
@@ -40,8 +39,9 @@ class MergeTest {
 
     @Test
     fun `click event should change state to RequiredState`() {
+        val emitter = Emitter()
 
-        val toggleObservable: ConnectableObservable<ClickEvent> = Observable.just(ClickEvent).publish()
+        val toggleObservable = TestObservable(emitter)
 
         val eventObservable = Observable.merge(
             eventRelay,
@@ -50,7 +50,7 @@ class MergeTest {
 
         viewModel.state(eventObservable).subscribe(stateObserver)
         mainScheduler.triggerActions()
-        toggleObservable.connect()
+        emitter.emit()
         mainScheduler.triggerActions()
 
         val latestState = stateObserver.values().last() as MainState
@@ -60,8 +60,51 @@ class MergeTest {
 
 }
 
-class Test : Observable<Event>() {
+class TestObservable(private val emitter: Emitter) : Observable<Event>() {
     override fun subscribeActual(observer: Observer<in Event>) {
-        observer.onNext(ClickEvent)
+        val eventConsumer = EventConsumer(observer = observer, emitter = emitter)
+        observer.onSubscribe(eventConsumer)
+        emitter.addListener(eventConsumer)
+    }
+
+    private class EventConsumer(
+        private val observer: Observer<in Event>,
+        private val emitter: Emitter
+    ) : EventListener, Disposable {
+
+        override fun performEvent(e: Event) {
+            observer.onNext(e)
+        }
+
+        override fun dispose() {
+            emitter.removeListener()
+        }
+
+        override fun isDisposed(): Boolean {
+            return false
+        }
     }
 }
+
+interface EventListener {
+    fun performEvent(e: Event)
+}
+
+
+class Emitter {
+
+    private var listener: EventListener? = null
+
+    fun addListener(listener: EventListener) {
+        this.listener = listener
+    }
+
+    fun removeListener() {
+        listener = null
+    }
+
+    fun emit() {
+        listener?.performEvent(ClickEvent)
+    }
+}
+

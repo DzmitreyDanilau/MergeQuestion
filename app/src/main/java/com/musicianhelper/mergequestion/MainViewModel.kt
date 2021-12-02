@@ -32,7 +32,8 @@ class MainViewModel(
             .map {
                 when (it) {
                     is MainResult.InitialResult -> MainState.InitialState
-                    else -> MainState.RequiredState
+                    is MainResult.RequiredResult -> MainState.RequiredState
+                    else -> MainState.InitialState
                 }
             }
             .observeOn(scheduler)
@@ -95,7 +96,9 @@ class MergeUseCase : UseCase<ClickAction, MainResult.RequiredResult> {
         return upstream
             .delay(3L, SECONDS)
             .subscribeOn(Schedulers.io())
-            .map { MainResult.RequiredResult }
+            .map {
+                MainResult.RequiredResult
+            }
             .doOnNext {
                 Timber.d("MergeUseCase: ${it.javaClass.name}, Thread: ${Thread.currentThread().name}")
             }
