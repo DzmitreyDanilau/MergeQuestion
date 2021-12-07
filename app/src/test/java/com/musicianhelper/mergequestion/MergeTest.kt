@@ -39,75 +39,17 @@ class MergeTest {
 
     @Test
     fun `click event should change state to RequiredState`() {
-        val emitter = Emitter()
-
-        val toggleObservable = TestObservable(emitter)
-
         val eventObservable = Observable.merge(
             eventRelay,
-            toggleObservable
+            Observable.just(ClickEvent)
         )
 
         viewModel.state(eventObservable).subscribe(stateObserver)
         mainScheduler.triggerActions()
-        emitter.emit()
-        mainScheduler.triggerActions()
 
-        //We take first, because we don't have the mechanism deu to simplicity that returns us
-        //Previous State value for the cases when we return Result from the toResult(event: Event)
-        //Func
         val latestState = stateObserver.values().first() as MainState
 
         assertThat(latestState, instanceOf(MainState.RequiredState::class.java))
     }
 
 }
-
-class TestObservable(private val emitter: Emitter) : Observable<Event>() {
-    override fun subscribeActual(observer: Observer<in Event>) {
-        val eventConsumer = EventConsumer(observer = observer, emitter = emitter)
-        observer.onSubscribe(eventConsumer)
-        emitter.addListener(eventConsumer)
-    }
-
-    private class EventConsumer(
-        private val observer: Observer<in Event>,
-        private val emitter: Emitter
-    ) : EventListener, Disposable {
-
-        override fun performEvent(e: Event) {
-            observer.onNext(e)
-        }
-
-        override fun dispose() {
-            emitter.removeListener()
-        }
-
-        override fun isDisposed(): Boolean {
-            return false
-        }
-    }
-}
-
-interface EventListener {
-    fun performEvent(e: Event)
-}
-
-
-class Emitter {
-
-    private var listener: EventListener? = null
-
-    fun addListener(listener: EventListener) {
-        this.listener = listener
-    }
-
-    fun removeListener() {
-        listener = null
-    }
-
-    fun emit() {
-        listener?.performEvent(ClickEvent)
-    }
-}
-
