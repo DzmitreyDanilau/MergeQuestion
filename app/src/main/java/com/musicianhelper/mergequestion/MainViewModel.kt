@@ -44,26 +44,17 @@ class MainViewModel(
     }
 
     private fun result(eventObservable: Observable<Event>): Observable<Result> {
-        return Observable.merge(
+        return eventObservable.publish { sharedEvents ->
             Observable.merge(
-                relay,
-                eventObservable.map(::toAction)
-            ).compose(submit),
-            eventObservable.map(::toResult),
-        )
-    }
+                Observable.merge(
+                    relay,
+                    sharedEvents.map(::toAction)
+                ).compose(submit),
+                sharedEvents.map(::toResult),
+            )
+        }
 
-//    private fun result(eventObservable: Observable<Event>): Observable<Result> {
-//        return eventObservable.publish {
-//            Observable.merge(
-//                Observable.merge(
-//                    relay,
-//                    it.map(::toAction)
-//                ).compose(submit),
-//                it.map(::toResult)
-//            )
-//        }
-//    }
+    }
 
     private fun toAction(event: Event): Action {
         Timber.d("toAction()")
