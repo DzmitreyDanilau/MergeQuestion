@@ -7,14 +7,12 @@ import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.ObservableSource
 import io.reactivex.rxjava3.core.ObservableTransformer
 import io.reactivex.rxjava3.core.Scheduler
-import io.reactivex.rxjava3.schedulers.Schedulers
 import timber.log.Timber
-import java.util.concurrent.TimeUnit.SECONDS
 
 class MainViewModel(
     private val scheduler: Scheduler = AndroidSchedulers.mainThread(),
     private val initialUseCase: UseCase<InitialAction, MainResult.InitialResult> = MainUseCase(),
-    private val mainUseCase: UseCase<ClickAction, MainResult.RequiredResult> = MergeUseCase()
+    private val mergeUseCase: UseCase<ClickAction, MainResult.RequiredResult> = MergeUseCase()
 ) : ViewModel(), StatePresenter<MainState> {
 
     private val relay = PublishRelay.create<Action>()
@@ -23,7 +21,7 @@ class MainViewModel(
         ObservableTransformer<Action, Result> { actions ->
             actions.publish { sharedAction ->
                 sharedAction.ofType(InitialAction::class.java).compose(initialUseCase)
-                sharedAction.ofType(ClickAction::class.java).compose(mainUseCase)
+                sharedAction.ofType(ClickAction::class.java).compose(mergeUseCase)
             }
         }
 
@@ -31,13 +29,18 @@ class MainViewModel(
         return result(eventObservable)
             .map {
                 when (it) {
-                    is MainResult.InitialResult -> MainState.InitialState
-                    is MainResult.RequiredResult -> MainState.RequiredState
-                    else -> MainState.InitialState
+                    is MainResult.InitialResult -> {
+                        MainState.InitialState
+                    }
+                    is MainResult.RequiredResult -> {
+                        MainState.RequiredState
+                    }
+                    else -> {
+                        MainState.InitialState
+                    }
                 }
             }
             .observeOn(scheduler)
-            .distinctUntilChanged()
     }
 
     private fun result(eventObservable: Observable<Event>): Observable<Result> {
@@ -49,6 +52,18 @@ class MainViewModel(
             eventObservable.map(::toResult),
         )
     }
+
+//    private fun result(eventObservable: Observable<Event>): Observable<Result> {
+//        return eventObservable.publish {
+//            Observable.merge(
+//                Observable.merge(
+//                    relay,
+//                    it.map(::toAction)
+//                ).compose(submit),
+//                it.map(::toResult)
+//            )
+//        }
+//    }
 
     private fun toAction(event: Event): Action {
         Timber.d("toAction()")
@@ -82,8 +97,6 @@ object ClickAction : Action
 class MainUseCase : UseCase<InitialAction, MainResult.InitialResult> {
     override fun apply(upstream: Observable<InitialAction>): ObservableSource<MainResult.InitialResult> {
         return upstream
-            .delay(3L, SECONDS)
-            .subscribeOn(Schedulers.io())
             .map { MainResult.InitialResult }
             .doOnNext {
                 Timber.d("MainUseCase: ${it.javaClass.name}, Thread: ${Thread.currentThread().name}")
@@ -94,11 +107,7 @@ class MainUseCase : UseCase<InitialAction, MainResult.InitialResult> {
 class MergeUseCase : UseCase<ClickAction, MainResult.RequiredResult> {
     override fun apply(upstream: Observable<ClickAction>): ObservableSource<MainResult.RequiredResult> {
         return upstream
-            .delay(3L, SECONDS)
-            .subscribeOn(Schedulers.io())
-            .map {
-                MainResult.RequiredResult
-            }
+            .map { MainResult.RequiredResult }
             .doOnNext {
                 Timber.d("MergeUseCase: ${it.javaClass.name}, Thread: ${Thread.currentThread().name}")
             }

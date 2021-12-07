@@ -33,7 +33,7 @@ class MergeTest {
         viewModel = MainViewModel(
             scheduler = mainScheduler,
             initialUseCase = initialUseCase,
-            mainUseCase = mainUseCase
+            mergeUseCase = mainUseCase
         )
     }
 
@@ -53,7 +53,10 @@ class MergeTest {
         emitter.emit()
         mainScheduler.triggerActions()
 
-        val latestState = stateObserver.values().last() as MainState
+        //We take first, because we don't have the mechanism deu to simplicity that returns us
+        //Previous State value for the cases when we return Result from the toResult(event: Event)
+        //Func
+        val latestState = stateObserver.values().first() as MainState
 
         assertThat(latestState, instanceOf(MainState.RequiredState::class.java))
     }
