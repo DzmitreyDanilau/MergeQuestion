@@ -44,6 +44,9 @@ class MainViewModel(
     }
 
     private fun result(eventObservable: Observable<Event>): Observable<Result> {
+        /**
+         * We merging (subscribe to) event observable twice, to be able to multicasting events
+         */
         return Observable.merge(
             Observable.merge(
                 relay,
@@ -52,18 +55,6 @@ class MainViewModel(
             eventObservable.map(::toResult),
         )
     }
-
-//    private fun result(eventObservable: Observable<Event>): Observable<Result> {
-//        return eventObservable.publish {
-//            Observable.merge(
-//                Observable.merge(
-//                    relay,
-//                    it.map(::toAction)
-//                ).compose(submit),
-//                it.map(::toResult)
-//            )
-//        }
-//    }
 
     private fun toAction(event: Event): Action {
         Timber.d("toAction()")
